@@ -46,6 +46,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 static int tnc_lock_init = 0;
 static csp_bin_sem_handle_t tnc_lock;
 
+uint8_t ax25_dest_src_bytes[] = {
+		0x96, 0x92, 0x9E, 0x9E, 0x6E, 0xB2, 0x60,
+		0x96, 0x92, 0x9E, 0x9E, 0x6E, 0xB2, 0x61
+	};
+
 /* Send a CSP packet over the TNC RS232 protocol */
 static int csp_tnc_tx(csp_iface_t * interface, csp_packet_t * packet, uint32_t timeout) {
 
@@ -70,10 +75,7 @@ static int csp_tnc_tx(csp_iface_t * interface, csp_packet_t * packet, uint32_t t
 	driver->tnc_putc(0x10); //printf("%02x ", 0x10); // TNC_DATA needs to be 0x10
 
 	// Write AX.25 destination and source to tnc
-	uint8_t ax25_dest_src_bytes[] = {
-		0x96, 0x92, 0x9E, 0x9E, 0x6E, 0xB2, 0x60,
-		0x96, 0x92, 0x9E, 0x9E, 0x6E, 0xB2, 0x61
-	};
+	
 	for (int i = 0; i < 14; i++) {
 		driver->tnc_putc(ax25_dest_src_bytes[i]); //printf("%02x ", ax25_dest_src_bytes[i]);
 	}
@@ -202,11 +204,16 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 
 
 					//Print Packet Data -- Testing Only
-					// printf("Packet Data (starting from the ID): \n");
-					// for (int i = 0; i < driver->rx_packet->length + sizeof(driver->rx_packet->id) - sizeof(uint32_t); i++){
-					// 	printf("%02x ", ((uint8_t*)&(driver->rx_packet->id))[i]);
-					// }
-					// printf("\n");
+					 printf("Packet Data (starting from the ID): \n");
+					 for (int i = 0; i < driver->rx_packet->length + sizeof(driver->rx_packet->id) - sizeof(uint32_t); i++){
+					 	printf("%02x ", ((uint8_t*)&(driver->rx_packet->id))[i]);
+					 }
+					 printf("\n ASCII:\n");
+					// Print in ASCII
+					 for (int i = 0; i < driver->rx_packet->length + sizeof(driver->rx_packet->id) - sizeof(uint32_t); i++){
+					 	printf("%c ", ((uint8_t*)&(driver->rx_packet->id))[i]);
+					 }
+					 printf("\n");
 
 					// REMOVE AX25 STUFF HERE
 					// At this point, the first c0 has been removed. You must now remove the AX25 bytes
