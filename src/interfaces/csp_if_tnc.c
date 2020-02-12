@@ -50,6 +50,7 @@ uint8_t ax25_dest_src_bytes[] = {
 		0x96, 0x92, 0x9E, 0x9E, 0x6E, 0xB2, 0x60,
 		0x96, 0x92, 0x9E, 0x9E, 0x6E, 0xB2, 0x61
 	};
+uint8_t channel_select = 0x00;
 
 /* Send a CSP packet over the TNC RS232 protocol */
 static int csp_tnc_tx(csp_iface_t * interface, csp_packet_t * packet, uint32_t timeout) {
@@ -72,7 +73,7 @@ static int csp_tnc_tx(csp_iface_t * interface, csp_packet_t * packet, uint32_t t
 	//printf("csp_tnc_tx: transmitting bytes: ");
 	csp_tnc_handle_t * driver = interface->driver;
 	driver->tnc_putc(FEND); //printf("%02x ", FEND); 
-	driver->tnc_putc(0x10); //printf("%02x ", 0x10); // TNC_DATA needs to be 0x10
+	driver->tnc_putc(channel_select); //printf("%02x ", 0x10); // TNC_DATA needs to be 0x10
 
 	// Write AX.25 destination and source to tnc
 	
