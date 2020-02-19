@@ -46,6 +46,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 static int tnc_lock_init = 0;
 static csp_bin_sem_handle_t tnc_lock;
 
+uint8_t test_byte = 0x00;
+
 uint8_t ax25_dest_src_bytes[] = {
 		0x96, 0x92, 0x9E, 0x9E, 0x6E, 0xB2, 0x60,
 		0x96, 0x92, 0x9E, 0x9E, 0x6E, 0xB2, 0x61
@@ -112,7 +114,7 @@ static int csp_tnc_tx(csp_iface_t * interface, csp_packet_t * packet, uint32_t t
  * and eventually send it directly to the CSP new packet function.
  */
 void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWoken) {
-
+	// printf("Debug#1\n");
 	/* Driver handle */
 	csp_tnc_handle_t * driver = interface->driver;
 
@@ -120,7 +122,7 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 
 		/* Input */
 		unsigned char inputbyte = *buf++;
-
+		// printf("Debug#2\n");
 		/* If packet was too long */
 		if (driver->rx_length > interface->mtu) {
 			csp_log_warn("TNC RX overflow");
@@ -128,9 +130,9 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 			driver->rx_mode = TNC_MODE_NOT_STARTED;
 			driver->rx_length = 0;
 		}
-
+		// printf("Debug#3\n");
 		switch (driver->rx_mode) {
-
+			
 		case TNC_MODE_NOT_STARTED:
 
 			/* Send normal chars back to usart driver */
@@ -139,7 +141,7 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 					driver->tnc_discard(inputbyte, pxTaskWoken);
 				break;
 			}
-
+			// printf("Debug#4\n");
 			/* Try to allocate new buffer */
 			if (driver->rx_packet == NULL) {
 				if (pxTaskWoken == NULL) {
@@ -147,14 +149,14 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 				} else {
 					driver->rx_packet = csp_buffer_get_isr(interface->mtu);
 				}
-			}
-
+			}	
+			// printf("Debug#5\n");
 			/* If no more memory, skip frame */
 			if (driver->rx_packet == NULL) {
 				driver->rx_mode = TNC_MODE_SKIP_FRAME;
 				break;
 			}
-
+			// printf("Debug#6\n");
 			/* Start transfer */
 			driver->rx_length = 0;
 			driver->rx_mode = TNC_MODE_STARTED;
@@ -168,17 +170,21 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 				driver->rx_mode = TNC_MODE_ESCAPED;
 				break;
 			}
-
+			// printf("Debug#7\n");
 			/* End Char */
 			if (inputbyte == FEND) {
 
 				/* Accept message */
 				if (driver->rx_length > 0) {
-					//printf("csp_if_tnc: Message accepted\n");
 
+					int ax25_len = 16;
+
+					//printf("csp_if_tnc: Message accepted\n");
+					// printf("Debug#8\n");
 					/* Check for valid length */
-					if (driver->rx_length < CSP_HEADER_LENGTH + sizeof(uint32_t)) {
-						printf("csp_if_tnc: Invalid length! Expected %d but got %d\n", CSP_HEADER_LENGTH + 4, driver->rx_length);
+					printf("Expected Length: %d Got Length is %d \n",CSP_HEADER_LENGTH + sizeof(uint32_t)+ax25_len,driver->rx_length);
+					if (driver->rx_length < CSP_HEADER_LENGTH + sizeof(uint32_t)+ax25_len) {
+						printf("csp_if_tnc: Invalid length! Expected %d but got %d\n", CSP_HEADER_LENGTH + 4+ax25_len, driver->rx_length);
 						csp_log_warn("TNC short frame skipped, len: %u", driver->rx_length);
 						interface->rx_error++;
 						driver->rx_mode = TNC_MODE_NOT_STARTED;
@@ -202,12 +208,16 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 					// 	driver->rx_mode = TNC_MODE_NOT_STARTED;
 					// 	break;
 					// }
-
-
+					// printf("Debug#9\n");
+					// test_byte = 0x60;
+					// printf("Current Test Byte = %02x\n",test_byte);
 					//Print Packet Data -- Testing Only
 					 printf("Packet Data (starting from the ID): \n");
 					 for (int i = 0; i < driver->rx_packet->length + sizeof(driver->rx_packet->id) - sizeof(uint32_t); i++){
-					 	printf("%02x ", ((uint8_t*)&(driver->rx_packet->id))[i]);
+					 	// if(i<=0x60){
+						// 	 ((uint8_t*)&(driver->rx_packet->id))[i] = test_byte;
+						//  }
+						 printf("%02x ", ((uint8_t*)&(driver->rx_packet->id))[i]);
 					 }
 					 printf("\n ASCII:\n");
 					// Print in ASCII
@@ -216,15 +226,17 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 					 }
 					 printf("\n");
 
+					//  test_byte ++;
+
 					// REMOVE AX25 STUFF HERE
 					// At this point, the first c0 has been removed. You must now remove the AX25 bytes
 					// from the data section and send the resulting packet to csp_qfifo_write (as done
 					// in the code below)
 					// 
-
+					// printf("Debug#10\n");
 					// Kiss(2): c0 10
 					// AX25(16): 7 callsign, 7 callsign, 2 parameter
-					int ax25_len = 16;
+					
 					//int chk_sm_len = 4;
 					// Save new header bytes as int (id.ext type = 32)
 					uint32_t new_header = 0;
@@ -233,7 +245,7 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 					new_header |= ((uint8_t*)&(driver->rx_packet->data))[13]; new_header = new_header << 8;
 					new_header |= ((uint8_t*)&(driver->rx_packet->data))[12]; 
 					//printf("Saved header bytes: %x\n", new_header);
-
+					// printf("Debug#11\n");
 					// Save new data buffer 
 					int new_len = (driver->rx_packet->length) - ax25_len;
 					//printf("csp_if_tnc:data length :%d\n",new_len);
@@ -241,7 +253,7 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 					for (int i = 0; i < new_len; i++) {
 						data_buffer[i] = ((uint8_t*)&(driver->rx_packet->data))[i + ax25_len];
 					}
-
+					// printf("Debug#12\n");
 					// Verify bytes of data buffer: 
 					// printf("New data bytes: ");
 					// for (int i = 0; i < new_len; i++) {
@@ -255,7 +267,7 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 					memcpy(driver->rx_packet->data, data_buffer, new_len);
 					free(data_buffer);
 					driver->rx_packet->length--;
-
+					// printf("Debug#13\n");
 					// printf("csp_if_tnc: new packet header: ");
 					// for (int i = 0; i < 4; i++) {
 					// 	printf("%02x ", ((uint8_t*)(&driver->rx_packet->id))[i]);
@@ -267,11 +279,12 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 					// 	printf("%02x ", driver->rx_packet->data[i]);
 					// }
 					// printf("\n");
-
+					// printf("Debug#14\n");
 					/* Send back into CSP, notice calling from task so last argument must be NULL! */
 					csp_qfifo_write(driver->rx_packet, interface, pxTaskWoken);
 					driver->rx_packet = NULL;
 					driver->rx_mode = TNC_MODE_NOT_STARTED;
+					// printf("Debug#15\n");
 					break;
 
 				}
@@ -279,7 +292,7 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 				/* Break after the end char */
 				break;
 			}
-
+			// printf("Debug#16\n");
 			/* Skip the first char after FEND which is TNC_DATA (0x00) */
 			if (driver->rx_first) {
 				driver->rx_first = 0;
@@ -296,17 +309,17 @@ void csp_tnc_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWo
 			/* Escaped escape char */
 			if (inputbyte == TFESC)
 				((char *) &driver->rx_packet->id.ext)[driver->rx_length++] = FESC;
-
+			// printf("Debug#17\n");
 			/* Escaped fend char */
 			if (inputbyte == TFEND)
 				((char *) &driver->rx_packet->id.ext)[driver->rx_length++] = FEND;
-
+			printf("Debug#18\n");
 			/* Go back to started mode */
 			driver->rx_mode = TNC_MODE_STARTED;
 			break;
 
 		case TNC_MODE_SKIP_FRAME:
-
+			// printf("Debug#19\n");
 			/* Just wait for end char */
 			if (inputbyte == FEND)
 				driver->rx_mode = TNC_MODE_NOT_STARTED;
